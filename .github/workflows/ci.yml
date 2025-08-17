@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev --extra testing
+
+    - name: Run ruff (linting and formatting)
+      run: |
+        uv run ruff check onepassword_mcp_server/
+        uv run ruff format --check onepassword_mcp_server/
+
+    - name: Run mypy (type checking)
+      run: |
+        uv run mypy onepassword_mcp_server/
+
+    - name: Run tests
+      run: |
+        uv run pytest onepassword_mcp_server/ -v --cov=onepassword_mcp_server --cov-report=xml --cov-report=term
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev
+
+    - name: Run bandit security scan
+      run: |
+        uv run bandit -r onepassword_mcp_server/ -f json -o bandit-report.json || true
+        uv run bandit -r onepassword_mcp_server/
+
+    - name: Run safety check
+      run: |
+        uv export --format requirements-txt | uv run safety check --stdin
+
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Build package
+      run: |
+        uv build
+
+    - name: Test package installation
+      run: |
+        pip install dist/*.whl
+        onepassword-mcp-server --help
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/

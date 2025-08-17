@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install dependencies
+      run: |
+        uv sync --extra dev --extra testing
+
+    - name: Run full test suite
+      run: |
+        uv run pytest onepassword_mcp_server/ -v --cov=onepassword_mcp_server
+
+    - name: Run security scans
+      run: |
+        uv run bandit -r onepassword_mcp_server/
+        uv export --format requirements-txt | uv run safety check --stdin
+
+    - name: Build package
+      run: |
+        uv build
+
+    - name: Extract release notes
+      id: extract-release-notes
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Extract release notes from CHANGELOG if it exists
+        if [ -f CHANGELOG.md ]; then
+          awk "/## \[$VERSION\]/{flag=1; next} /## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+        else
+          echo "Release $VERSION" > release_notes.md
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        body_path: release_notes.md
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        # Using PyPI trusted publishing - configure in PyPI project settings
+        # Alternatively, use token: ${{ secrets.PYPI_API_TOKEN }}
+        repository-url: https://upload.pypi.org/legacy/
