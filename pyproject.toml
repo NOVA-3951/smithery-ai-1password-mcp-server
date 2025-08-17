@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "onepassword-mcp-server"
+version = "1.1.0"
+description = "A secure MCP server that provides authenticated 1Password credential retrieval with comprehensive error handling, resilience patterns, security hardening, and full MCP protocol compliance"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "1Password MCP Server Contributors" }]
+maintainers = [{ name = "1Password MCP Server Contributors" }]
+keywords = [
+    "1password",
+    "mcp",
+    "credentials",
+    "security",
+    "authentication",
+    "model-context-protocol",
+    "password-manager",
+    "ai-assistant",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
+    "Typing :: Typed",
+]
+dependencies = [
+    "mcp[cli]>=1.6.0",
+    "onepassword-sdk>=0.2.1",
+    "pydantic>=2.5.0",
+    "cryptography>=41.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.11.0",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+]
+testing = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.11.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.4.0",
+    "mkdocs-mermaid2-plugin>=1.1.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "mkdocs-minify-plugin>=0.7.0",
+    "pymdown-extensions>=10.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jon-the-dev/1password-mcp-server"
+Documentation = "https://jon-the-dev.github.io/1password-mcp-server/"
+Repository = "https://github.com/jon-the-dev/1password-mcp-server.git"
+Issues = "https://github.com/jon-the-dev/1password-mcp-server/issues"
+Changelog = "https://github.com/jon-the-dev/1password-mcp-server/releases"
+
+[project.scripts]
+onepassword-mcp-server = "onepassword_mcp_server:main"
+op-mcp-server = "onepassword_mcp_server:main"
+
+[tool.hatchling.build.targets.wheel]
+packages = ["onepassword_mcp_server"]
+
+[tool.hatchling.build.targets.sdist]
+include = ["/onepassword_mcp_server", "/README.md", "/LICENSE", "/SECURITY.md"]
+exclude = [
+    "/.git",
+    "/.vscode",
+    "/__pycache__",
+    "*.pyc",
+    "/tests",
+    "/docs",
+    "/.env*",
+]

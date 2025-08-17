@@ -1,0 +1,188 @@
+# MkDocs Configuration for 1Password MCP Server
+site_name: 1Password MCP Server
+site_description: A secure MCP server that provides authenticated 1Password credential retrieval with comprehensive error handling, resilience patterns, security hardening, and full MCP protocol compliance
+site_author: 1Password MCP Server Contributors
+site_url: https://github.com/jon-the-dev/1password-mcp-server
+
+# Repository
+repo_name: jon-the-dev/1password-mcp-server
+repo_url: https://github.com/jon-the-dev/1password-mcp-server
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 1Password MCP Server Contributors
+
+# Configuration
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.share
+    - toc.follow
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    logo: material/shield-key
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  - mermaid2:
+      arguments:
+        theme: |
+          ^((?!dark).)*$
+
+# Customization
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jon-the-dev/1password-mcp-server
+    - icon: fontawesome/solid/shield-halved
+      link: https://github.com/jon-the-dev/1password-mcp-server/security
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: jon-the-dev
+      repo: 1password-mcp-server
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/mkdocs.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page tree
+nav:
+  - Home: 
+    - Overview: index.md
+    - Getting Started: getting-started.md
+  - User Guide:
+    - Setup Guide: SETUP_GUIDE.md
+    - Security Guide: SECURITY_GUIDE.md
+    - Troubleshooting: TROUBLESHOOTING.md
+  - API Reference:
+    - API Documentation: API_REFERENCE.md
+    - Tool Specifications: api/tools.md
+    - Error Handling: api/errors.md
+  - Developer Guide:
+    - Development Guide: DEVELOPER_GUIDE.md
+    - Architecture: dev/architecture.md
+    - Contributing: dev/contributing.md
+    - Testing: dev/testing.md
+  - Security:
+    - Security Model: security/model.md
+    - Best Practices: security/practices.md
+    - Incident Response: security/incident-response.md
+  - Operations:
+    - Deployment: ops/deployment.md
+    - Monitoring: ops/monitoring.md
+    - Maintenance: ops/maintenance.md
+
+# Watch
+watch:
+  - docs/
+  - onepassword_mcp_server/
+
+# Development
+dev_addr: '127.0.0.1:8000'
+
+# Validation
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+
+# Site metadata
+site_dir: site
+docs_dir: docs
