@@ -240,9 +240,10 @@ class TestAuthentication:
     async def test_invalid_token_authentication(self):
         """Test authentication failure with invalid token"""
         with patch('onepassword_mcp_server.server.Client.authenticate') as mock_auth:
-            # Use our custom OnePasswordError wrapper
-            from onepassword_mcp_server.server import OnePasswordError as ServerError
-            mock_auth.side_effect = ServerError("Invalid token")
+            # Import the OnePasswordError wrapper class from the server module
+            # This is used for catching 1Password SDK errors in a generic way
+            from onepassword_mcp_server.server import OnePasswordError
+            mock_auth.side_effect = OnePasswordError("Invalid token")
             
             with patch('onepassword_mcp_server.server.logger') as mock_logger:
                 config = MagicMock()

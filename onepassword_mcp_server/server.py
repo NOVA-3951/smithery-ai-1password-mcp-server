@@ -471,14 +471,16 @@ async def initialize_server():
             logger.warning(f"Configuration warning: {warning}")
         
         # Initialize security hardening
-        # Note: required_environment_vars is empty because token validation is now lazy
-        # This allows the server to start and respond to MCP initialization without a token
+        # Note: required_environment_vars is set to empty to allow the server to start
+        # without OP_SERVICE_ACCOUNT_TOKEN. The default security config only requires
+        # this one variable, and token validation is now handled lazily in config.require_token()
+        # when credential operations are actually performed.
         security_config = SecurityHardeningConfig(
             memory_protection_enabled=True,
             tls_enforcement_enabled=config.environment.value == "production",
             request_signing_enabled=True,
             environment_validation_enabled=True,
-            required_environment_vars=[]  # Token validation is handled lazily in config.require_token()
+            required_environment_vars=[]  # Token validation deferred to config.require_token()
         )
         security_manager = initialize_security_hardening(security_config)
         

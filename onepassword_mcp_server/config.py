@@ -207,11 +207,15 @@ class ServerConfig:
         
         self._token_validated = True
     
+    def _is_token_length_valid(self) -> bool:
+        """Check if token meets minimum length requirement"""
+        return (self.service_account_token is not None and 
+                len(self.service_account_token) >= self.security.token_min_length)
+    
     def has_valid_token(self) -> bool:
         """Check if a valid service account token is configured"""
         return bool(self.service_account_token) and (
-            self._token_validated or 
-            (len(self.service_account_token) >= self.security.token_min_length)
+            self._token_validated or self._is_token_length_valid()
         )
     
     def require_token(self) -> str:
@@ -236,6 +240,7 @@ class ServerConfig:
             self._validate_token()
         
         return self.service_account_token
+
 
 
 class ConfigurationError(Exception):
