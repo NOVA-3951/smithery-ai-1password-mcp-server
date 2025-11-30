@@ -79,10 +79,10 @@ Changelog = "https://github.com/jon-the-dev/1password-mcp-server/releases"
 onepassword-mcp-server = "onepassword_mcp_server:main"
 op-mcp-server = "onepassword_mcp_server:main"
 
-[tool.hatchling.build.targets.wheel]
+[tool.hatch.build.targets.wheel]
 packages = ["onepassword_mcp_server"]
 
-[tool.hatchling.build.targets.sdist]
+[tool.hatch.build.targets.sdist]
 include = ["/onepassword_mcp_server", "/README.md", "/LICENSE", "/SECURITY.md"]
 exclude = [
     "/.git",
