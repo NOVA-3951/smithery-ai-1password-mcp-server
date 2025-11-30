@@ -30,7 +30,7 @@ startCommand:
       OP_SERVICE_ACCOUNT_TOKEN:
         type: string
         title: "1Password Service Account Token"
-        description: "Your 1Password service account token (starts with 'ops_'). Get one from https://developer.1password.com/"
+        description: "Optional manual override. When deployed via Smithery, the service account token is retrieved through the OAuth flow."
         pattern: "^ops_[a-zA-Z0-9_-]+"
         minLength: 8
       SECURITY_DEFAULT_VAULT:
@@ -56,22 +56,21 @@ startCommand:
         description: "Enable create/update/delete credential operations (use with caution)"
         enum: ["true", "false"]
         default: "false"
-    required:
-      - OP_SERVICE_ACCOUNT_TOKEN
-  commandFunction: |-
-    (config) => ({
-      command: "uv",
-      args: ["run", "python", "-m", "onepassword_mcp_server.server", "--transport", "streamable-http"],
-      env: {
-        NODE_ENV: "production",
-        PORT: "8081",
-        OP_SERVICE_ACCOUNT_TOKEN: config.OP_SERVICE_ACCOUNT_TOKEN || "",
-        SECURITY_DEFAULT_VAULT: config.SECURITY_DEFAULT_VAULT || "AI",
-        LOG_LEVEL: config.LOG_LEVEL || "INFO",
-        ENVIRONMENT: config.ENVIRONMENT || "production",
-        DESTRUCTIVE_ACTIONS: config.DESTRUCTIVE_ACTIONS || "false"
-      }
-    })
+    commandFunction: |-
+      (config) => ({
+        command: "uv",
+        args: ["run", "python", "-m", "onepassword_mcp_server.server", "--transport", "streamable-http"],
+        env: {
+          NODE_ENV: "production",
+          PORT: "8081",
+          // Prefer the Smithery OAuth access token, fall back to user-provided config
+          OP_SERVICE_ACCOUNT_TOKEN: (config.auth && config.auth.accessToken) || config.OP_SERVICE_ACCOUNT_TOKEN || "",
+          SECURITY_DEFAULT_VAULT: config.SECURITY_DEFAULT_VAULT || "AI",
+          LOG_LEVEL: config.LOG_LEVEL || "INFO",
+          ENVIRONMENT: config.ENVIRONMENT || "production",
+          DESTRUCTIVE_ACTIONS: config.DESTRUCTIVE_ACTIONS || "false"
+        }
+      })
 
 # Example configuration for Smithery UI display
 exampleConfig:

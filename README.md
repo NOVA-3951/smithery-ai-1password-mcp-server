@@ -174,7 +174,7 @@ This server supports Smithery deployment with Streamable HTTP transport for clou
 **Quick Deploy:**
 1. Fork or clone this repository
 2. Connect your repository to [Smithery](https://smithery.ai)
-3. Configure your 1Password Service Account Token in Smithery's settings
+3. Complete the Smithery OAuth flow to grant access to your 1Password service account token (no startup env var required)
 4. Deploy!
 
 **Local HTTP Server Testing:**
@@ -198,7 +198,7 @@ The server automatically configures CORS for web-based clients and supports the 
 
 | Variable | Required | Description | Default | Example |
 |----------|----------|-------------|---------|---------|
-| `OP_SERVICE_ACCOUNT_TOKEN` | ✅ | 1Password service account token | - | `ops_...` |
+| `OP_SERVICE_ACCOUNT_TOKEN` | ⚠️ | Required for credential retrieval. In Smithery deployments this is supplied automatically via OAuth; set manually for local/self-hosted runs. | - | `ops_...` |
 | `ENVIRONMENT` | ❌ | Deployment environment | `development` | `production` |
 | `LOG_LEVEL` | ❌ | Logging level | `INFO` | `DEBUG`, `WARNING` |
 | `LOG_FORMAT` | ❌ | Log output format | `json` | `text` |
