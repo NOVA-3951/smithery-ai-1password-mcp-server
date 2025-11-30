@@ -1562,7 +1562,7 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
             import uvicorn
             from starlette.middleware.cors import CORSMiddleware
             from starlette.routing import Route
-            from starlette.responses import JSONResponse
+            from starlette.responses import JSONResponse, RedirectResponse
             
             # Get the Starlette app from FastMCP
             app = mcp.streamable_http_app()
@@ -1586,22 +1586,85 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                 except Exception as e:
                     return JSONResponse({"status": "unhealthy", "error": str(e)}, status_code=503)
             
-            # Add the health route to the app
-            app.routes.append(Route("/health", health_endpoint, methods=["GET"]))
+            # Import package version for consistent version reporting
+            from . import __version__ as package_version, __description__ as package_description
+            
+            # Default values for server info (used when config is not loaded)
+            DEFAULT_SERVER_NAME = "1Password MCP Server"
+            DEFAULT_VERSION = package_version  # Use package version as default
+            DEFAULT_DESCRIPTION = package_description
+            
+            # Root endpoint that redirects to /mcp or provides server info
+            async def root_endpoint(request):
+                """Root endpoint for server discovery and Smithery compatibility"""
+                # Check if this is a POST request (likely MCP initialize)
+                if request.method == "POST":
+                    # Redirect POST requests to /mcp endpoint
+                    return RedirectResponse(url="/mcp", status_code=307)
+                
+                # For GET requests, return server info for discovery
+                server_name = config.server_name if config else DEFAULT_SERVER_NAME
+                server_version = config.integration_version if config else DEFAULT_VERSION
+                return JSONResponse({
+                    "name": server_name,
+                    "version": server_version,
+                    "protocol": "mcp",
+                    "transport": "streamable-http",
+                    "endpoints": {
+                        "mcp": "/mcp",
+                        "health": "/health"
+                    },
+                    "description": DEFAULT_DESCRIPTION
+                })
+            
+            # MCP config endpoint for .well-known/mcp-config discovery
+            async def mcp_config_endpoint(request):
+                """MCP configuration endpoint for service discovery"""
+                server_name = config.server_name if config else DEFAULT_SERVER_NAME
+                server_version = config.integration_version if config else DEFAULT_VERSION
+                return JSONResponse({
+                    "name": server_name,
+                    "version": server_version,
+                    "protocol_version": "2024-11-05",
+                    "transport": {
+                        "type": "streamable-http",
+                        "endpoint": "/mcp"
+                    },
+                    "capabilities": {
+                        "tools": True,
+                        "resources": False,
+                        "prompts": True
+                    }
+                })
+            
+            # Add custom routes to the app
+            # We use a list of routes and add them all at once to be explicit about order
+            custom_routes = [
+                Route("/", root_endpoint, methods=["GET", "POST"]),
+                Route("/health", health_endpoint, methods=["GET"]),
+                Route("/.well-known/mcp-config", mcp_config_endpoint, methods=["GET"]),
+            ]
+            # Insert custom routes at the beginning so they take precedence over the MCP route
+            for i, route in enumerate(custom_routes):
+                app.routes.insert(i, route)
             
             # Add CORS middleware for web clients
             # CORS is configured to allow all origins for Smithery compatibility
-            # since Smithery scanner requests come from various origins
+            # Note: When using allow_origins=["*"], we cannot use allow_credentials=True
+            # per CORS specification. Smithery uses bearer tokens, not cookies, so this is fine.
             cors_origins = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else []
             if not cors_origins or cors_origins == ['']:
                 # Allow all origins for maximum compatibility with Smithery
-                # The MCP server relies on service account token authentication
                 cors_origins = ["*"]
+            
+            # Determine if we should allow credentials based on origin configuration
+            # Wildcard origins cannot be used with credentials per CORS spec
+            allow_credentials = cors_origins != ["*"]
             
             app.add_middleware(
                 CORSMiddleware,
                 allow_origins=cors_origins,
-                allow_credentials=True,
+                allow_credentials=allow_credentials,
                 allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
                 allow_headers=["*"],  # Allow all headers for MCP protocol compatibility
                 expose_headers=["mcp-session-id", "mcp-protocol-version"],
