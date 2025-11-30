@@ -1648,7 +1648,8 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                 return JSONResponse({
                     "name": server_name,
                     "version": server_version,
-                    "protocol_version": "2024-11-05",
+                    # Use Smithery's current protocol version for discovery compatibility
+                    "protocolVersion": "2025-06-18",
                     "transport": {
                         "type": "streamable-http",
                         "endpoint": "/mcp"
