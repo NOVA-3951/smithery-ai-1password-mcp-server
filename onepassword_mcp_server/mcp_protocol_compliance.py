@@ -13,7 +13,7 @@ This module implements full MCP protocol compliance including:
 import json
 import asyncio
 import uuid
-from typing import Dict, Any, List, Optional, Union, Callable, AsyncGenerator
+from typing import Dict, Any, List, Optional, Union, Callable, AsyncGenerator, Tuple
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from datetime import datetime
@@ -22,8 +22,8 @@ import inspect
 from functools import wraps
 
 from mcp.server.fastmcp import FastMCP
-from mcp.server.models import Tool, Prompt, Resource
-from mcp.types import ToolResult, PromptMessage, JSONRPCMessage
+from mcp.types import Tool, Prompt, Resource
+from mcp.types import CallToolResult as ToolResult, PromptMessage, JSONRPCMessage
 
 
 class TransportType(Enum):

@@ -25,8 +25,10 @@ Features:
 """
 
 import asyncio
+import argparse
+import os
 import time
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, Literal
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -36,7 +38,12 @@ from pydantic import BaseModel, Field, validator
 from pydantic import ValidationError as PydanticValidationError
 from mcp.server.fastmcp import FastMCP
 from onepassword.client import Client
-from onepassword.core.errors import OnePasswordError
+from onepassword import ResolveReferenceError, RateLimitExceededException
+
+# Create a base OnePasswordError class for compatibility
+class OnePasswordError(Exception):
+    """Base class for 1Password errors"""
+    pass
 
 # Import our modules
 from .config import ConfigLoader, ServerConfig, ConfigurationError
@@ -800,8 +807,7 @@ async def get_1password_credentials_impl(item_name: str, vault: str = None) -> D
         raise ValueError(error_msg)
 
 
-@mcp.tool()
-async def get_health_status() -> Dict[str, Any]:
+async def get_health_status_impl() -> Dict[str, Any]:
     """
     Get comprehensive health status of the 1Password MCP server.
     
@@ -1369,8 +1375,12 @@ async def delete_1password_credential_impl(
         raise ValueError(f"Failed to delete credential: {str(e)}")
 
 
-async def main():
-    """Main server startup routine"""
+async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
+    """Main server startup routine
+    
+    Args:
+        transport: Transport protocol to use ("stdio", "sse", or "streamable-http")
+    """
     global mcp
     
     try:
@@ -1483,6 +1493,7 @@ async def main():
             metadata={
                 "version": config.integration_version,
                 "environment": config.environment.value,
+                "transport": transport,
                 "security_hardening": True,
                 "mcp_protocol_compliance": True,
                 "available_tools": len(protocol_manager.tools) if protocol_manager else 7,
@@ -1520,25 +1531,103 @@ async def main():
                 metadata={"health_summary": health.to_dict()["summary"]}
             )
         
-        # Start the MCP server
-        mcp.run(transport='stdio')
+        # Start the MCP server with the specified transport
+        if transport == 'streamable-http':
+            # For streamable HTTP, we need to set up with CORS for web clients
+            # Get port from environment variable (Smithery sets this)
+            port = int(os.environ.get("PORT", "8081"))
+            host = os.environ.get("HOST", "0.0.0.0")
+            
+            logger.info(
+                f"Starting streamable HTTP server on {host}:{port}",
+                operation="server_startup",
+                metadata={"host": host, "port": port, "transport": transport}
+            )
+            
+            # Run with uvicorn for production-ready HTTP serving
+            import uvicorn
+            from starlette.middleware.cors import CORSMiddleware
+            
+            # Get the Starlette app from FastMCP
+            app = mcp.streamable_http_app()
+            
+            # Add CORS middleware for web clients
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=["*"],  # Configure as needed for security
+                allow_credentials=True,
+                allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
+                allow_headers=["*"],
+                expose_headers=["mcp-session-id", "mcp-protocol-version"],
+                max_age=86400,
+            )
+            
+            # Run the server
+            uvicorn_config = uvicorn.Config(
+                app,
+                host=host,
+                port=port,
+                log_level="info" if config.logging.level.value == "INFO" else config.logging.level.value.lower(),
+                access_log=True
+            )
+            server = uvicorn.Server(uvicorn_config)
+            await server.serve()
+        else:
+            # Standard stdio or SSE transport
+            mcp.run(transport=transport)
         
     except KeyboardInterrupt:
-        logger.info("Server stopped by user", operation="server_shutdown")
+        if logger:
+            logger.info("Server stopped by user", operation="server_shutdown")
         if security_manager:
             security_manager.cleanup()
     except Exception as e:
-        logger.critical(
-            "Server startup failed",
-            operation="server_startup",
-            error_code="startup_error",
-            metadata={"error_message": str(e)}
-        )
+        if logger:
+            logger.critical(
+                "Server startup failed",
+                operation="server_startup",
+                error_code="startup_error",
+                metadata={"error_message": str(e)}
+            )
+        else:
+            print(f"Server startup failed: {e}")
         if security_manager:
             security_manager.cleanup()
         raise
 
 
 if __name__ == "__main__":
-    # Run the async main function
-    asyncio.run(main())
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="1Password MCP Server - Secure credential retrieval for AI assistants"
+    )
+    parser.add_argument(
+        "--transport",
+        type=str,
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+        help="Transport protocol to use (default: stdio)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port for HTTP transport (default: 8081 or PORT env var)"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=None,
+        help="Host for HTTP transport (default: 0.0.0.0 or HOST env var)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Set environment variables from command line args if provided
+    if args.port:
+        os.environ["PORT"] = str(args.port)
+    if args.host:
+        os.environ["HOST"] = args.host
+    
+    # Run the async main function with the specified transport
+    asyncio.run(main(transport=args.transport))
