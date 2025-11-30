@@ -26,9 +26,9 @@ ENV PORT=8081
 # Expose the port
 EXPOSE ${PORT}
 
-# Health check endpoint using shell form to properly expand PORT variable
+# Health check endpoint using exec form with sh -c to properly expand PORT variable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget -q --spider http://localhost:${PORT}/health || exit 1
+    CMD ["sh", "-c", "wget -q --spider http://localhost:${PORT}/health || exit 1"]
 
 # Run the server in streamable HTTP mode
 CMD ["uv", "run", "python", "-m", "onepassword_mcp_server.server", "--transport", "streamable-http"]

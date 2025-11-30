@@ -1563,7 +1563,6 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
             from starlette.middleware.cors import CORSMiddleware
             from starlette.routing import Route
             from starlette.responses import JSONResponse
-            import json
             
             # Get the Starlette app from FastMCP
             app = mcp.streamable_http_app()
