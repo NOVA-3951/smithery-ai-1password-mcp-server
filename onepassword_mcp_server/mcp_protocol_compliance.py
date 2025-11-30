@@ -23,6 +23,8 @@ from functools import wraps
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Tool, Prompt, Resource
+# The MCP SDK renamed ToolResult to CallToolResult in recent versions.
+# We alias it as ToolResult for backwards compatibility with existing code.
 from mcp.types import CallToolResult as ToolResult, PromptMessage, JSONRPCMessage
 
 

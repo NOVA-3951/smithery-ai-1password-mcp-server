@@ -31,6 +31,8 @@ startCommand:
         type: string
         title: "1Password Service Account Token"
         description: "Your 1Password service account token (starts with 'ops_'). Get one from https://developer.1password.com/"
+        pattern: "^ops_[a-zA-Z0-9_-]+"
+        minLength: 8
       SECURITY_DEFAULT_VAULT:
         type: string
         title: "Default Vault"
