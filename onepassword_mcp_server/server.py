@@ -1624,7 +1624,7 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                 if request.method == "POST":
                     # Redirect POST requests to /mcp endpoint
                     return RedirectResponse(url="/mcp", status_code=307)
-                
+
                 # For GET requests, return server info for discovery
                 server_name = config.server_name if config else DEFAULT_SERVER_NAME
                 server_version = config.integration_version if config else DEFAULT_VERSION
@@ -1632,6 +1632,8 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                     "name": server_name,
                     "version": server_version,
                     "protocol": "mcp",
+                    # Report the current MCP protocol version for Smithery scanners
+                    "protocolVersion": "2025-06-18",
                     "transport": "streamable-http",
                     "endpoints": {
                         "mcp": "/mcp",

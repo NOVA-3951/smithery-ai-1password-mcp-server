@@ -177,6 +177,9 @@ This server supports Smithery deployment with Streamable HTTP transport for clou
 3. Complete the Smithery OAuth flow to grant access to your 1Password service account token (no startup env var required)
 4. Deploy!
 
+> The server listens on port **8081** in Smithery deployments and advertises the MCP discovery metadata (including `protocolVersion`)
+> at `/.well-known/mcp-config` for the Smithery scanner.
+
 **Local HTTP Server Testing:**
 ```bash
 # Run with streamable HTTP transport (for Smithery compatibility)

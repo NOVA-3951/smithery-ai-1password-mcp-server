@@ -60,6 +60,8 @@ startCommand:
       (config) => ({
         command: "uv",
         args: ["run", "python", "-m", "onepassword_mcp_server.server", "--transport", "streamable-http"],
+        // Explicitly declare the port so Smithery knows where to reach the HTTP server
+        port: 8081,
         env: {
           NODE_ENV: "production",
           PORT: "8081",
