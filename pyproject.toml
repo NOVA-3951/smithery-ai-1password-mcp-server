@@ -75,6 +75,14 @@ Repository = "https://github.com/jon-the-dev/1password-mcp-server.git"
 Issues = "https://github.com/jon-the-dev/1password-mcp-server/issues"
 Changelog = "https://github.com/jon-the-dev/1password-mcp-server/releases"
 
+[dependency-groups]
+testing = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.11.0",
+]
+
 [project.scripts]
 onepassword-mcp-server = "onepassword_mcp_server:main"
 op-mcp-server = "onepassword_mcp_server:main"
@@ -93,3 +101,6 @@ exclude = [
     "/docs",
     "/.env*",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "onepassword_mcp_server", ".venv/lib/python3.12/site-packages"]
