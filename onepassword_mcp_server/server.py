@@ -1586,6 +1586,14 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                 except Exception as e:
                     return JSONResponse({"status": "unhealthy", "error": str(e)}, status_code=503)
             
+            # Import package version for consistent version reporting
+            from . import __version__ as package_version, __description__ as package_description
+            
+            # Default values for server info (used when config is not loaded)
+            DEFAULT_SERVER_NAME = "1Password MCP Server"
+            DEFAULT_VERSION = package_version  # Use package version as default
+            DEFAULT_DESCRIPTION = package_description
+            
             # Root endpoint that redirects to /mcp or provides server info
             async def root_endpoint(request):
                 """Root endpoint for server discovery and Smithery compatibility"""
@@ -1595,24 +1603,28 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                     return RedirectResponse(url="/mcp", status_code=307)
                 
                 # For GET requests, return server info for discovery
+                server_name = config.server_name if config else DEFAULT_SERVER_NAME
+                server_version = config.integration_version if config else DEFAULT_VERSION
                 return JSONResponse({
-                    "name": config.server_name if config else "1Password MCP Server",
-                    "version": config.integration_version if config else "1.1.0",
+                    "name": server_name,
+                    "version": server_version,
                     "protocol": "mcp",
                     "transport": "streamable-http",
                     "endpoints": {
                         "mcp": "/mcp",
                         "health": "/health"
                     },
-                    "description": "Secure 1Password credential retrieval for AI assistants via MCP protocol"
+                    "description": DEFAULT_DESCRIPTION
                 })
             
             # MCP config endpoint for .well-known/mcp-config discovery
             async def mcp_config_endpoint(request):
                 """MCP configuration endpoint for service discovery"""
+                server_name = config.server_name if config else DEFAULT_SERVER_NAME
+                server_version = config.integration_version if config else DEFAULT_VERSION
                 return JSONResponse({
-                    "name": config.server_name if config else "1Password MCP Server",
-                    "version": config.integration_version if config else "1.1.0",
+                    "name": server_name,
+                    "version": server_version,
                     "protocol_version": "2024-11-05",
                     "transport": {
                         "type": "streamable-http",
@@ -1625,10 +1637,16 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                     }
                 })
             
-            # Add routes to the app - insert at the beginning to take precedence
-            app.routes.insert(0, Route("/", root_endpoint, methods=["GET", "POST"]))
-            app.routes.insert(1, Route("/health", health_endpoint, methods=["GET"]))
-            app.routes.insert(2, Route("/.well-known/mcp-config", mcp_config_endpoint, methods=["GET"]))
+            # Add custom routes to the app
+            # We use a list of routes and add them all at once to be explicit about order
+            custom_routes = [
+                Route("/", root_endpoint, methods=["GET", "POST"]),
+                Route("/health", health_endpoint, methods=["GET"]),
+                Route("/.well-known/mcp-config", mcp_config_endpoint, methods=["GET"]),
+            ]
+            # Insert custom routes at the beginning so they take precedence over the MCP route
+            for i, route in enumerate(custom_routes):
+                app.routes.insert(i, route)
             
             # Add CORS middleware for web clients
             # CORS is configured to allow all origins for Smithery compatibility
