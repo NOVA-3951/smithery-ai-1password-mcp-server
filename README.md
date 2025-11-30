@@ -164,8 +164,33 @@ This MCP server intentionally returns plaintext credentials to AI assistants. Se
 ### Installing via Smithery
 
 ```bash
-npx -y @smithery/cli install @dkvdm/onepassword-mcp-server --client claude
+npx -y @smithery/cli install @onepassword/mcp-server --client claude
 ```
+
+### Smithery Deployment (Streamable HTTP)
+
+This server supports Smithery deployment with Streamable HTTP transport for cloud-hosted MCP servers.
+
+**Quick Deploy:**
+1. Fork or clone this repository
+2. Connect your repository to [Smithery](https://smithery.ai)
+3. Configure your 1Password Service Account Token in Smithery's settings
+4. Deploy!
+
+**Local HTTP Server Testing:**
+```bash
+# Run with streamable HTTP transport (for Smithery compatibility)
+onepassword-mcp-server --transport streamable-http --port 8081
+
+# Or with environment variables
+PORT=8081 python -m onepassword_mcp_server.server --transport streamable-http
+```
+
+**Smithery Configuration Files:**
+- `smithery.yaml` - Smithery deployment configuration
+- `Dockerfile` - Container configuration for Smithery deployment
+
+The server automatically configures CORS for web-based clients and supports the MCP Streamable HTTP protocol.
 
 ## 🛠️ Configuration
 

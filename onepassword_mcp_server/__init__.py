@@ -46,8 +46,44 @@ from .mcp_protocol_compliance import MCPProtocolManager
 def main():
     """Main entry point for the CLI."""
     import asyncio
+    import argparse
+    import os
     from .server import main as server_main
-    asyncio.run(server_main())
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="1Password MCP Server - Secure credential retrieval for AI assistants"
+    )
+    parser.add_argument(
+        "--transport",
+        type=str,
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+        help="Transport protocol to use (default: stdio)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port for HTTP transport (default: 8081 or PORT env var)"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=None,
+        help="Host for HTTP transport (default: 0.0.0.0 or HOST env var)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Set environment variables from command line args if provided
+    if args.port:
+        os.environ["PORT"] = str(args.port)
+    if args.host:
+        os.environ["HOST"] = args.host
+    
+    # Run the async main function with the specified transport
+    asyncio.run(server_main(transport=args.transport))
 
 # Version info tuple for programmatic access
 VERSION_INFO = tuple(map(int, __version__.split('.')))
