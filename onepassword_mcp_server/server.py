@@ -1617,13 +1617,41 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
             DEFAULT_VERSION = package_version  # Use package version as default
             DEFAULT_DESCRIPTION = package_description
             
+            def _request_prefix(request, suffix: str) -> str:
+                """Determine any path prefix added by a reverse proxy (e.g., Smithery).
+
+                Smithery mounts the service under a project path such as
+                `/@org/project`. Requests then arrive with that prefix in the
+                URL (e.g., `/@org/project/.well-known/mcp-config`). The routes
+                below need to echo that prefix back in discovery metadata so the
+                scanner knows where to send MCP traffic.
+                """
+                path = request.url.path
+                root_path = (request.scope.get("root_path") or "").rstrip("/")
+
+                prefix = ""
+                if suffix and path.endswith(suffix):
+                    prefix = path[: -len(suffix)]
+                if not prefix and root_path:
+                    prefix = root_path
+
+                return prefix.rstrip("/")
+
+            def _with_prefix(prefix: str, path: str) -> str:
+                """Prepend the proxy prefix to a relative path if present."""
+                if not prefix:
+                    return path
+                return f"{prefix}{path}"
+
             # Root endpoint that redirects to /mcp or provides server info
             async def root_endpoint(request):
                 """Root endpoint for server discovery and Smithery compatibility"""
+                prefix = _request_prefix(request, "")
+
                 # Check if this is a POST request (likely MCP initialize)
                 if request.method == "POST":
-                    # Redirect POST requests to /mcp endpoint
-                    return RedirectResponse(url="/mcp", status_code=307)
+                    # Redirect POST requests to the prefixed /mcp endpoint
+                    return RedirectResponse(url=_with_prefix(prefix, "/mcp"), status_code=307)
 
                 # For GET requests, return server info for discovery
                 server_name = config.server_name if config else DEFAULT_SERVER_NAME
@@ -1636,8 +1664,8 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                     "protocolVersion": "2025-06-18",
                     "transport": "streamable-http",
                     "endpoints": {
-                        "mcp": "/mcp",
-                        "health": "/health"
+                        "mcp": _with_prefix(prefix, "/mcp"),
+                        "health": _with_prefix(prefix, "/health")
                     },
                     "description": DEFAULT_DESCRIPTION
                 })
@@ -1645,6 +1673,7 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
             # MCP config endpoint for .well-known/mcp-config discovery
             async def mcp_config_endpoint(request):
                 """MCP configuration endpoint for service discovery"""
+                prefix = _request_prefix(request, "/.well-known/mcp-config")
                 server_name = config.server_name if config else DEFAULT_SERVER_NAME
                 server_version = config.integration_version if config else DEFAULT_VERSION
                 return JSONResponse({
@@ -1654,7 +1683,7 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                     "protocolVersion": "2025-06-18",
                     "transport": {
                         "type": "streamable-http",
-                        "endpoint": "/mcp"
+                        "endpoint": _with_prefix(prefix, "/mcp")
                     },
                     "capabilities": {
                         "tools": True,
@@ -1669,6 +1698,8 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
                 Route("/", root_endpoint, methods=["GET", "POST"]),
                 Route("/health", health_endpoint, methods=["GET"]),
                 Route("/.well-known/mcp-config", mcp_config_endpoint, methods=["GET"]),
+                # Support Smithery-style prefixed deployments (e.g., /@org/project)
+                Route("/{proxy_prefix:path}/.well-known/mcp-config", mcp_config_endpoint, methods=["GET"]),
             ]
             # Insert custom routes at the beginning so they take precedence over the MCP route
             for i, route in enumerate(custom_routes):
