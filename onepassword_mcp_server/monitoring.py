@@ -383,9 +383,16 @@ async def onepassword_connectivity_check() -> Dict[str, Any]:
         # Check if we have the required environment variable
         token = os.getenv("OP_SERVICE_ACCOUNT_TOKEN")
         if not token:
+            # Return degraded instead of unhealthy when token is not configured
+            # This allows the server to be recognized as functional by Smithery
+            # but indicates that credential operations will not work
             return {
-                "status": "unhealthy",
-                "message": "1Password service account token not configured"
+                "status": "degraded",
+                "message": "1Password service account token not configured - credential operations unavailable",
+                "metadata": {
+                    "token_configured": False,
+                    "credential_operations_available": False
+                }
             }
         
         # Basic token format validation

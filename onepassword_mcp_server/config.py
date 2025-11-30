@@ -184,16 +184,63 @@ class ServerConfig:
     server_name: str = "1Password MCP Server"
     server_description: str = "Secure credential retrieval for AI assistants"
     
+    # Token validation state (internal)
+    _token_validated: bool = field(default=False, repr=False, compare=False)
+    
     def __post_init__(self):
-        # Validate service account token
+        # Validate service account token if provided
+        # Token is now optional at startup to allow MCP protocol initialization
+        # Token will be validated lazily when credential operations are called
+        if self.service_account_token:
+            self._validate_token()
+    
+    def _validate_token(self) -> None:
+        """Validate the service account token format"""
         if not self.service_account_token:
-            raise ValueError("OP_SERVICE_ACCOUNT_TOKEN environment variable is required")
+            return
         
         if len(self.service_account_token) < self.security.token_min_length:
             raise ValueError(f"Service account token must be at least {self.security.token_min_length} characters")
         
         if not self.service_account_token.startswith(self.security.token_prefix):
             logging.warning(f"Service account token does not start with expected prefix '{self.security.token_prefix}'")
+        
+        self._token_validated = True
+    
+    def _is_token_length_valid(self) -> bool:
+        """Check if token meets minimum length requirement"""
+        return (self.service_account_token is not None and 
+                len(self.service_account_token) >= self.security.token_min_length)
+    
+    def has_valid_token(self) -> bool:
+        """Check if a valid service account token is configured"""
+        return bool(self.service_account_token) and (
+            self._token_validated or self._is_token_length_valid()
+        )
+    
+    def require_token(self) -> str:
+        """Get the token, raising an error if not configured
+        
+        This method should be called when a credential operation is performed.
+        
+        Returns:
+            The service account token
+            
+        Raises:
+            ConfigurationError: If no token is configured
+        """
+        if not self.service_account_token:
+            raise ConfigurationError(
+                "OP_SERVICE_ACCOUNT_TOKEN environment variable is required for credential operations. "
+                "Please configure your 1Password service account token."
+            )
+        
+        # Validate token if not already validated
+        if not self._token_validated:
+            self._validate_token()
+        
+        return self.service_account_token
+
 
 
 class ConfigurationError(Exception):
@@ -311,6 +358,10 @@ class ConfigLoader:
         """Validate configuration and return list of warnings"""
         warnings = []
         
+        # Check if token is configured
+        if not config.service_account_token:
+            warnings.append("OP_SERVICE_ACCOUNT_TOKEN not configured - credential operations will fail")
+        
         # Environment-specific validations
         if config.environment == Environment.PRODUCTION:
             if config.logging.level == LogLevel.DEBUG:
@@ -321,9 +372,13 @@ class ConfigLoader:
             
             if not config.monitoring.health_check_enabled:
                 warnings.append("Health checks disabled in production environment")
+            
+            # In production, token should be configured
+            if not config.service_account_token:
+                warnings.append("Production environment without OP_SERVICE_ACCOUNT_TOKEN")
         
-        # Security validations
-        if len(config.service_account_token) < 50:
+        # Security validations (only if token is configured)
+        if config.service_account_token and len(config.service_account_token) < 50:
             warnings.append("Service account token appears short for production use")
         
         # Performance validations
@@ -346,6 +401,7 @@ class ConfigLoader:
             "environment": config.environment.value,
             "integration_name": config.integration_name,
             "integration_version": config.integration_version,
+            "token_configured": config.has_valid_token(),
             "rate_limit": {
                 "max_requests": config.rate_limit.max_requests,
                 "window_seconds": config.rate_limit.window_seconds

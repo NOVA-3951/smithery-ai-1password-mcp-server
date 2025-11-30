@@ -248,12 +248,16 @@ class OnePasswordSecureClient:
         if self.client is not None:
             return self.client
         
+        # Validate token before attempting authentication
+        # This raises ConfigurationError if token is not configured
+        token = self.config.require_token()
+        
         async def auth_operation():
             self.metrics_collector.increment_counter("onepassword_authentication_attempts")
             
             try:
                 self.client = await Client.authenticate(
-                    auth=self.config.service_account_token,
+                    auth=token,
                     integration_name=self.config.integration_name,
                     integration_version=self.config.integration_version
                 )
@@ -467,11 +471,16 @@ async def initialize_server():
             logger.warning(f"Configuration warning: {warning}")
         
         # Initialize security hardening
+        # Note: required_environment_vars is set to empty to allow the server to start
+        # without OP_SERVICE_ACCOUNT_TOKEN. The default security config only requires
+        # this one variable, and token validation is now handled lazily in config.require_token()
+        # when credential operations are actually performed.
         security_config = SecurityHardeningConfig(
             memory_protection_enabled=True,
             tls_enforcement_enabled=config.environment.value == "production",
             request_signing_enabled=True,
-            environment_validation_enabled=True
+            environment_validation_enabled=True,
+            required_environment_vars=[]  # Token validation deferred to config.require_token()
         )
         security_manager = initialize_security_hardening(security_config)
         
@@ -758,6 +767,20 @@ async def get_1password_credentials_impl(item_name: str, vault: str = None) -> D
         metrics_collector.record_histogram("request_duration_ms", duration_ms)
         
         return credentials
+    
+    except ConfigurationError as e:
+        # Token not configured - provide clear error message
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        metrics_collector.increment_counter("server_errors_total")
+        metrics_collector.record_histogram("request_duration_ms", duration_ms)
+        
+        logger.warning(
+            "Credential request failed: token not configured",
+            operation="get_1password_credentials",
+            error_code="token_not_configured",
+            duration_ms=duration_ms
+        )
+        raise ValueError(str(e))
         
     except (PydanticValidationError, ValidationError) as e:
         duration_ms = (time.perf_counter() - start_time) * 1000
