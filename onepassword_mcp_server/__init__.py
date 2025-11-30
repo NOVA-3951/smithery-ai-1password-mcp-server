@@ -43,6 +43,13 @@ from .server import OnePasswordSecureClient
 from .security_hardening import SecurityHardeningManager
 from .mcp_protocol_compliance import MCPProtocolManager
 
+# Provide convenient module aliases for test imports that expect top-level names.
+import sys as _sys
+import onepassword_mcp_server.config as _config_module
+import onepassword_mcp_server.server as _server_module
+_sys.modules.setdefault("config", _config_module)
+_sys.modules.setdefault("server", _server_module)
+
 def main():
     """Main entry point for the CLI."""
     import asyncio

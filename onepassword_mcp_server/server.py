@@ -123,6 +123,11 @@ class RateLimiter:
         self.requests: Dict[str, RateLimitEntry] = defaultdict(
             lambda: RateLimitEntry(0, time.time())
         )
+
+        # Ensure a logger exists when the rate limiter is used in isolation (e.g., during unit tests)
+        global logger
+        if logger is None:
+            logger = get_logger("1password-mcp-server")
         
         # Initialize metrics
         self.metrics_collector.create_counter(
