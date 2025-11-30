@@ -689,13 +689,19 @@ def get_secure_client() -> OnePasswordSecureClient:
 
 
 # Initialize enhanced MCP server after protocol manager is available
-def create_mcp_server():
-    """Create the enhanced MCP server with protocol compliance"""
+def create_mcp_server(stateless_http: bool = False):
+    """Create the enhanced MCP server with protocol compliance
+    
+    Args:
+        stateless_http: If True, enables stateless HTTP mode for scalable cloud deployments
+                       like Smithery. This is required for deployments where each request
+                       may be handled by a different server instance.
+    """
     if protocol_manager:
-        return create_enhanced_mcp_server(protocol_manager)
+        return create_enhanced_mcp_server(protocol_manager, stateless_http=stateless_http)
     else:
         # Fallback to basic MCP server
-        return FastMCP("1Password")
+        return FastMCP("1Password", stateless_http=stateless_http)
 
 # Store secure client instance
 secure_client: Optional[OnePasswordSecureClient] = None
@@ -1390,8 +1396,13 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
         # Initialize all server components
         await initialize_server()
         
+        # For streamable-http transport, enable stateless mode for scalable cloud deployments
+        # This is required for Smithery and similar platforms where requests may be
+        # handled by different server instances
+        use_stateless_http = transport == 'streamable-http'
+        
         # Create enhanced MCP server with protocol compliance
-        mcp = create_mcp_server()
+        mcp = create_mcp_server(stateless_http=use_stateless_http)
         
         # Register tools with the created MCP server
         @mcp.tool()
@@ -1544,34 +1555,56 @@ async def main(transport: Literal['stdio', 'sse', 'streamable-http'] = 'stdio'):
             logger.info(
                 f"Starting streamable HTTP server on {host}:{port}",
                 operation="server_startup",
-                metadata={"host": host, "port": port, "transport": transport}
+                metadata={"host": host, "port": port, "transport": transport, "stateless_http": True}
             )
             
             # Run with uvicorn for production-ready HTTP serving
             import uvicorn
             from starlette.middleware.cors import CORSMiddleware
+            from starlette.routing import Route
+            from starlette.responses import JSONResponse
+            import json
             
             # Get the Starlette app from FastMCP
             app = mcp.streamable_http_app()
             
+            # Add health endpoint for Docker healthcheck and load balancer compatibility
+            async def health_endpoint(request):
+                """Health check endpoint for container orchestration and load balancers"""
+                try:
+                    if health_checker:
+                        health = await health_checker.run_all_checks()
+                        # Convert to dict and ensure all values are JSON serializable
+                        health_dict = health.to_dict()
+                        # Convert any remaining enum values to their string representation
+                        if "checks" in health_dict:
+                            for check in health_dict["checks"]:
+                                if "status" in check and hasattr(check["status"], "value"):
+                                    check["status"] = check["status"].value
+                        status_code = 200 if health.overall_status.value == "healthy" else 503
+                        return JSONResponse(health_dict, status_code=status_code)
+                    return JSONResponse({"status": "healthy", "message": "Server is running"}, status_code=200)
+                except Exception as e:
+                    return JSONResponse({"status": "unhealthy", "error": str(e)}, status_code=503)
+            
+            # Add the health route to the app
+            app.routes.append(Route("/health", health_endpoint, methods=["GET"]))
+            
             # Add CORS middleware for web clients
-            # CORS is configured based on environment:
-            # - Production: Restrict to Smithery domains for security
-            # - Development: Allow all origins for testing
+            # CORS is configured to allow all origins for Smithery compatibility
+            # since Smithery scanner requests come from various origins
             cors_origins = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else []
-            if not cors_origins:
-                # Default to Smithery domains in production, all in development
-                if config.environment.value == "production":
-                    cors_origins = ["https://smithery.ai", "https://*.smithery.ai"]
-                else:
-                    cors_origins = ["*"]
+            if not cors_origins or cors_origins == ['']:
+                # Allow all origins for maximum compatibility with Smithery
+                # The MCP server relies on service account token authentication
+                cors_origins = ["*"]
             
             app.add_middleware(
                 CORSMiddleware,
                 allow_origins=cors_origins,
                 allow_credentials=True,
                 allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
-                allow_headers=["Content-Type", "Authorization", "mcp-session-id", "X-Request-ID"],
+                allow_headers=["*"],  # Allow all headers for MCP protocol compatibility
                 expose_headers=["mcp-session-id", "mcp-protocol-version"],
                 max_age=86400,
             )

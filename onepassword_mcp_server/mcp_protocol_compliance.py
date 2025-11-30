@@ -566,10 +566,17 @@ Please help diagnose the issue{include_logs and ', including relevant log entrie
         }
 
 
-def create_enhanced_mcp_server(protocol_manager: MCPProtocolManager) -> FastMCP:
-    """Create an enhanced MCP server with full protocol compliance"""
+def create_enhanced_mcp_server(protocol_manager: MCPProtocolManager, stateless_http: bool = False) -> FastMCP:
+    """Create an enhanced MCP server with full protocol compliance
     
-    mcp = FastMCP(protocol_manager.server_name)
+    Args:
+        protocol_manager: The MCP protocol manager instance
+        stateless_http: If True, enables stateless HTTP mode for scalable cloud deployments
+                       like Smithery. This is required for deployments where each request
+                       may be handled by a different server instance.
+    """
+    
+    mcp = FastMCP(protocol_manager.server_name, stateless_http=stateless_http)
     
     # Add protocol compliance endpoints
     
