@@ -26,9 +26,9 @@ ENV PORT=8081
 # Expose the port
 EXPOSE ${PORT}
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health')" || exit 1
+# Health check endpoint using exec form with sh -c to properly expand PORT variable
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD ["sh", "-c", "wget -q --spider http://localhost:${PORT}/health || exit 1"]
 
 # Run the server in streamable HTTP mode
 CMD ["uv", "run", "python", "-m", "onepassword_mcp_server.server", "--transport", "streamable-http"]
