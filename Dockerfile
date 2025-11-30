@@ -10,9 +10,11 @@ ENV UV_LINK_MODE=copy
 
 # Install dependencies using lockfile and pyproject.toml
 # Use cache mounts for faster rebuilds
+# README.md is required by pyproject.toml for package metadata
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=README.md,target=README.md \
     uv sync --locked --no-dev
 
 # Copy the application code
